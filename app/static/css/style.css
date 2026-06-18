@@ -2242,3 +2242,140 @@ img {
 		font-size: 22px;
 	}
 }
+
+/* ===== 图组就地编辑（站长 / 管理员） ===== */
+.title-edit {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	color: var(--muted);
+	background: none;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition: color 0.15s, border-color 0.15s;
+}
+
+.title-edit:hover {
+	color: var(--hl-deep);
+	border-color: var(--hl);
+}
+
+.edit-title-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 24px;
+	font-weight: 700;
+	padding: 6px 10px;
+	color: var(--text);
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	outline: none;
+}
+
+.edit-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 14px 0;
+	padding: 16px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.edit-field {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	font-size: 13px;
+	color: var(--muted);
+}
+
+.edit-field select,
+.edit-field textarea {
+	padding: 8px 10px;
+	font: inherit;
+	color: var(--text);
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	outline: none;
+	resize: vertical;
+}
+
+.edit-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
+.add-imgs {
+	cursor: pointer;
+}
+
+.edit-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.grid-cell.edit-mode {
+	cursor: default;
+}
+
+.cover-flag {
+	position: absolute;
+	top: 0;
+	right: 0;
+	font-family: var(--mono);
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--ink);
+	background: var(--hl);
+	padding: 1px 7px;
+	letter-spacing: 0.5px;
+}
+
+.cell-edit {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	background: rgba(10, 11, 12, 0.62);
+}
+
+.cell-btn {
+	min-width: 84px;
+	padding: 6px 10px;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--ink);
+	background: var(--hl);
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+}
+
+.cell-btn.danger {
+	color: #fff;
+	background: var(--danger);
+}
+
+.comment-edit textarea {
+	width: 100%;
+	padding: 8px 10px;
+	color: var(--text);
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	outline: none;
+	resize: vertical;
+}

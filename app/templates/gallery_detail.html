@@ -3,43 +3,84 @@
 
 {% block content %}
 	<article class="detail"
-		x-data="{ lb: false, curId: null, ids: {{ gallery.images|map(attribute='id')|list }},
-			open(id) { this.curId = id; this.lb = true; document.body.style.overflow = 'hidden'; },
-			close() { this.lb = false; this.curId = null; document.body.style.overflow = ''; },
-			idx() { return this.ids.indexOf(this.curId); },
-			prev() { const i = this.idx(); if (i > 0) { this.curId = this.ids[i - 1]; } },
-			next() { const i = this.idx(); if (i < this.ids.length - 1) { this.curId = this.ids[i + 1]; } } }"
+		x-data="galleryDetail({ gid: {{ gallery.id }}, title: {{ gallery.title|tojson }},
+			description: {{ gallery.description|tojson }}, category: {{ gallery.category|tojson }},
+			ids: {{ gallery.images|map(attribute='id')|list|tojson }} })"
 		@keydown.escape.window="lb && close()"
 		@keydown.arrow-left.window="lb && prev()"
 		@keydown.arrow-right.window="lb && next()">
 		<header class="detail-head">
 			<div class="detail-title-line">
-				<h1>{{ gallery.title }}</h1>
+				<h1 x-show="!editing">{{ gallery.title }}</h1>
 				{% if current_user.is_authenticated %}
-					<button class="title-fav" x-data="favBox('gallery', {{ gallery.id }})" x-init="init()"
+					<button class="title-fav" x-show="!editing"
+						x-data="favBox('gallery', {{ gallery.id }})" x-init="init()"
 						:class="fav ? 'on' : ''" @click="toggle()" title="收藏图组">★</button>
 				{% endif %}
+				{% if current_user.is_authenticated and current_user.is_admin %}
+					<button class="title-edit" x-show="!editing" @click="toggleEdit()"
+						title="编辑图组">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+							stroke="currentColor" stroke-width="2" stroke-linecap="round"
+							stroke-linejoin="round">
+							<path d="M12 20h9"></path>
+							<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+						</svg>
+					</button>
+				{% endif %}
+				<input x-show="editing" x-cloak class="edit-title-input" type="text"
+					x-model="form.title" maxlength="120" placeholder="图组标题">
 			</div>
 			<div class="warn-line"></div>
-			<div class="detail-meta">
-				{% if gallery.uploader.avatar %}
-					<img class="mini-avatar"
-						src="{{ url_for('static', filename='avatars/' + gallery.uploader.avatar) }}" alt="">
-				{% else %}
-					<span class="mini-avatar fallback">{{ gallery.uploader.nickname[0] }}</span>
+
+			<div x-show="!editing">
+				<div class="detail-meta">
+					{% if gallery.uploader.avatar %}
+						<img class="mini-avatar"
+							src="{{ url_for('static', filename='avatars/' + gallery.uploader.avatar) }}" alt="">
+					{% else %}
+						<span class="mini-avatar fallback">{{ gallery.uploader.nickname[0] }}</span>
+					{% endif %}
+					{{ id_tag(gallery.uploader.role, show_user=false) }}
+					<span>{{ gallery.uploader.nickname }}</span>
+					<span class="dot">·</span>
+					<span>{{ gallery.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+					<span class="tag">{{ dict(CATEGORIES)[gallery.category] }}</span>
+				</div>
+				{% if gallery.description %}
+					<p class="detail-desc">{{ gallery.description }}</p>
 				{% endif %}
-				{{ id_tag(gallery.uploader.role, show_user=false) }}
-				<span>{{ gallery.uploader.nickname }}</span>
-				<span class="dot">·</span>
-				<span>{{ gallery.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-				<span class="tag">{{ dict(CATEGORIES)[gallery.category] }}</span>
 			</div>
-			{% if gallery.description %}
-				<p class="detail-desc">{{ gallery.description }}</p>
-			{% endif %}
 
 			{% if current_user.is_authenticated and current_user.is_admin %}
-				<div class="detail-actions">
+				<div class="edit-panel" x-show="editing" x-cloak>
+					<label class="edit-field">
+						<span>分类</span>
+						<select x-model="form.category">
+							{% for key, label in CATEGORIES %}
+								<option value="{{ key }}">{{ label }}</option>
+							{% endfor %}
+						</select>
+					</label>
+					<label class="edit-field">
+						<span>简介</span>
+						<textarea x-model="form.description" rows="3" maxlength="1000"
+							placeholder="图组简介（可空）"></textarea>
+					</label>
+					<div class="edit-actions">
+						<button class="btn primary" @click="saveMeta()" :disabled="saving"
+							x-text="saving ? '保存中…' : '保存信息'">保存信息</button>
+						<button class="btn" @click="toggleEdit()">取消</button>
+						<label class="btn add-imgs">
+							添加图片
+							<input type="file" accept="image/*" multiple hidden
+								@change="addImages($event)">
+						</label>
+					</div>
+					<p class="edit-hint">编辑模式下，鼠标移到图片上可「设为封面」或「删除」。</p>
+				</div>
+
+				<div class="detail-actions" x-show="!editing">
 					<form method="post" action="{{ url_for('gallery.delete', gid=gallery.id) }}"
 						onsubmit="return confirm('确认删除整个图组？');">
 						<button type="submit" class="btn danger">删除图组</button>
@@ -48,16 +89,27 @@
 			{% endif %}
 		</header>
 
-		<!-- 图片网格：一行最多 5 张，单图按两图宽度显示，点击放大 -->
+		<!-- 图片网格：一行最多 5 张，单图按两图宽度显示，点击放大；编辑态显示角标操作 -->
 		{% set cols = 2 if gallery.images|length == 1 else [gallery.images|length, 5]|min %}
-		<section class="photo-grid" style="grid-template-columns: repeat({{ cols }}, 1fr);">
+		<section class="photo-grid" :class="editing ? 'editing' : ''"
+			style="grid-template-columns: repeat({{ cols }}, 1fr);">
 			{% for img in gallery.images %}
-				<button class="grid-cell" type="button" @click="open({{ img.id }})"
-					title="查看大图">
+				<div class="grid-cell" role="button" @click="!editing && open({{ img.id }})"
+					:class="editing ? 'edit-mode' : ''" title="查看大图">
 					<img src="{{ url_for('static', filename='uploads/' + img.thumb_filename) }}"
 						alt="{{ gallery.title }}" loading="lazy">
 					<span class="grid-no">P{{ '%02d'|format(loop.index) }}</span>
-				</button>
+					{% if gallery.cover and gallery.cover.id == img.id %}
+						<span class="cover-flag">封面</span>
+					{% endif %}
+					{% if current_user.is_authenticated and current_user.is_admin %}
+						<div class="cell-edit" x-show="editing" x-cloak @click.stop>
+							<button type="button" class="cell-btn" @click="setCover({{ img.id }})">设为封面</button>
+							<button type="button" class="cell-btn danger"
+								@click="delImage({{ img.id }})">删除</button>
+						</div>
+					{% endif %}
+				</div>
 			{% endfor %}
 		</section>
 

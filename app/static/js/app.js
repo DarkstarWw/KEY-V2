@@ -51,6 +51,8 @@ window.commentBox = function (targetType, targetId) {
 		content: "",
 		replyTo: null,
 		replyName: "",
+		editingId: null,
+		editContent: "",
 		async init() {
 			await this.load();
 		},
@@ -107,6 +109,133 @@ window.commentBox = function (targetType, targetId) {
 				await this.load();
 			} else {
 				alert(res.msg || "删除失败");
+			}
+		},
+		// 编辑评论（仅站长 / 管理员）
+		startEdit(c) {
+			this.editingId = c.id;
+			this.editContent = c.content;
+		},
+		cancelEdit() {
+			this.editingId = null;
+			this.editContent = "";
+		},
+		async saveEdit(id) {
+			if (!this.editContent.trim()) {
+				return;
+			}
+			const res = await api(`/api/comment/${id}/edit`, "POST", { content: this.editContent });
+			if (res.ok) {
+				this.cancelEdit();
+				await this.load();
+			} else {
+				alert(res.msg || "修改失败");
+			}
+		},
+	};
+};
+
+// ---------- 图组详情：大图查看（含左右切换）+ 管理员就地编辑 ----------
+window.galleryDetail = function (cfg) {
+	return {
+		// 大图查看
+		lb: false,
+		curId: null,
+		ids: cfg.ids,
+		open(id) {
+			this.curId = id;
+			this.lb = true;
+			document.body.style.overflow = "hidden";
+		},
+		close() {
+			this.lb = false;
+			this.curId = null;
+			document.body.style.overflow = "";
+		},
+		idx() {
+			return this.ids.indexOf(this.curId);
+		},
+		prev() {
+			const i = this.idx();
+			if (i > 0) {
+				this.curId = this.ids[i - 1];
+			}
+		},
+		next() {
+			const i = this.idx();
+			if (i < this.ids.length - 1) {
+				this.curId = this.ids[i + 1];
+			}
+		},
+		// 就地编辑（仅站长 / 管理员）
+		gid: cfg.gid,
+		editing: false,
+		saving: false,
+		form: { title: cfg.title, description: cfg.description, category: cfg.category },
+		toggleEdit() {
+			this.editing = !this.editing;
+			if (this.editing) {
+				this.form = {
+					title: cfg.title,
+					description: cfg.description,
+					category: cfg.category,
+				};
+			}
+		},
+		async saveMeta() {
+			if (!this.form.title.trim()) {
+				alert("标题不能为空");
+				return;
+			}
+			this.saving = true;
+			const res = await api(`/gallery/${this.gid}/update`, "POST", {
+				title: this.form.title,
+				description: this.form.description,
+				category: this.form.category,
+			});
+			this.saving = false;
+			if (res.ok) {
+				location.reload();
+			} else {
+				alert(res.msg || "保存失败");
+			}
+		},
+		async setCover(imageId) {
+			const res = await api(`/gallery/${this.gid}/cover`, "POST", { image_id: imageId });
+			if (res.ok) {
+				location.reload();
+			} else {
+				alert(res.msg || "设置封面失败");
+			}
+		},
+		async delImage(imageId) {
+			if (!confirm("确认删除这张图片？")) {
+				return;
+			}
+			const res = await api(`/gallery/${this.gid}/image/${imageId}/delete`, "POST");
+			if (res.ok) {
+				location.reload();
+			} else {
+				alert(res.msg || "删除失败");
+			}
+		},
+		async addImages(event) {
+			const input = event.target;
+			if (!input.files || input.files.length === 0) {
+				return;
+			}
+			const fd = new FormData();
+			for (const f of input.files) {
+				fd.append("images", f);
+			}
+			this.saving = true;
+			const resp = await fetch(`/gallery/${this.gid}/images`, { method: "POST", body: fd });
+			const res = await resp.json();
+			this.saving = false;
+			if (res.ok) {
+				location.reload();
+			} else {
+				alert(res.msg || "上传失败");
 			}
 		},
 	};

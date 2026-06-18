@@ -90,6 +90,29 @@ def add_comment():
 	return jsonify(ok=True)
 
 
+@interact_bp.route("/api/comment/<int:cid>/edit", methods=["POST"])
+@login_required
+def edit_comment(cid):
+	"""修改评论内容（仅站长 / 管理员）。"""
+	if not current_user.is_admin:
+		return jsonify(ok=False, msg="无权修改"), 403
+
+	comment = db.session.get(Comment, cid)
+	if not comment:
+		return jsonify(ok=False, msg="评论不存在"), 404
+
+	data = request.get_json(silent=True) or {}
+	content = (data.get("content") or "").strip()
+	if not content:
+		return jsonify(ok=False, msg="评论内容不能为空"), 400
+	if len(content) > 1000:
+		return jsonify(ok=False, msg="评论过长"), 400
+
+	comment.content = content
+	db.session.commit()
+	return jsonify(ok=True)
+
+
 @interact_bp.route("/api/comment/<int:cid>/delete", methods=["POST"])
 @login_required
 def delete_comment(cid):

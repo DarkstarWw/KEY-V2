@@ -34,9 +34,23 @@
 						</template>
 						<span class="time" x-text="c.created_at"></span>
 					</div>
-					<p x-text="c.content"></p>
+					<template x-if="editingId === c.id">
+						<div class="comment-edit">
+							<textarea x-model="editContent" rows="2"></textarea>
+							<div class="comment-ops">
+								<button class="link" @click="saveEdit(c.id)">保存</button>
+								<button class="link" @click="cancelEdit()">取消</button>
+							</div>
+						</div>
+					</template>
+					<template x-if="editingId !== c.id">
+						<p x-text="c.content"></p>
+					</template>
 					<div class="comment-ops">
 						<button class="link" @click="setReply(c)">回复</button>
+						<template x-if="window.IS_ADMIN">
+							<button class="link" @click="startEdit(c)">编辑</button>
+						</template>
 						<template x-if="c.can_delete">
 							<button class="link danger" @click="remove(c.id)">删除</button>
 						</template>
@@ -56,9 +70,23 @@
 									</template>
 									<span class="time" x-text="sc.created_at"></span>
 								</div>
-								<p x-text="sc.content"></p>
+								<template x-if="editingId === sc.id">
+									<div class="comment-edit">
+										<textarea x-model="editContent" rows="2"></textarea>
+										<div class="comment-ops">
+											<button class="link" @click="saveEdit(sc.id)">保存</button>
+											<button class="link" @click="cancelEdit()">取消</button>
+										</div>
+									</div>
+								</template>
+								<template x-if="editingId !== sc.id">
+									<p x-text="sc.content"></p>
+								</template>
 								<div class="comment-ops">
 									<button class="link" @click="setReply(c)">回复</button>
+									<template x-if="window.IS_ADMIN">
+										<button class="link" @click="startEdit(sc)">编辑</button>
+									</template>
 									<template x-if="sc.can_delete">
 										<button class="link danger" @click="remove(sc.id)">删除</button>
 									</template>

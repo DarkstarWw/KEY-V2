@@ -10,6 +10,7 @@ from flask import (
 	abort,
 	current_app,
 	flash,
+	jsonify,
 	redirect,
 	render_template,
 	request,
@@ -168,17 +169,138 @@ def delete(gid):
 	if not gallery:
 		abort(404)
 
-	folder = current_app.config["UPLOAD_FOLDER"]
 	for image in gallery.images:
-		for fname in (image.filename, image.thumb_filename):
-			path = os.path.join(folder, fname)
-			if os.path.exists(path):
-				try:
-					os.remove(path)
-				except OSError:
-					current_app.logger.warning("删除文件失败：%s", path)
+		_remove_image_files(image)
 
 	db.session.delete(gallery)
 	db.session.commit()
 	flash("已删除图组", "ok")
 	return redirect(url_for("gallery.index"))
+
+
+def _remove_image_files(image):
+	"""删除单张图片在磁盘上的原图与缩略图文件（失败仅记录日志）。
+
+	Args:
+		image (Image): 待清理文件的图片对象。
+	"""
+	folder = current_app.config["UPLOAD_FOLDER"]
+	for fname in (image.filename, image.thumb_filename):
+		path = os.path.join(folder, fname)
+		if os.path.exists(path):
+			try:
+				os.remove(path)
+			except OSError:
+				current_app.logger.warning("删除文件失败：%s", path)
+
+
+@gallery_bp.route("/gallery/<int:gid>/update", methods=["POST"])
+@login_required
+@admin_required
+def update(gid):
+	"""修改图组信息（管理员）：标题 / 简介 / 分类。"""
+	gallery = db.session.get(Gallery, gid)
+	if not gallery:
+		return jsonify(ok=False, msg="图组不存在"), 404
+
+	data = request.get_json(silent=True) or {}
+	title = (data.get("title") or "").strip()
+	description = (data.get("description") or "").strip()
+	category = data.get("category")
+
+	if not title:
+		return jsonify(ok=False, msg="标题不能为空"), 400
+	if len(title) > 120:
+		return jsonify(ok=False, msg="标题过长"), 400
+	if len(description) > 1000:
+		return jsonify(ok=False, msg="简介过长"), 400
+	if category not in _valid_categories():
+		return jsonify(ok=False, msg="分类不合法"), 400
+
+	gallery.title = title
+	gallery.description = description
+	gallery.category = category
+	db.session.commit()
+	return jsonify(ok=True)
+
+
+@gallery_bp.route("/gallery/<int:gid>/cover", methods=["POST"])
+@login_required
+@admin_required
+def set_cover(gid):
+	"""设置图组封面（管理员）：image_id 须属于该图组。"""
+	gallery = db.session.get(Gallery, gid)
+	if not gallery:
+		return jsonify(ok=False, msg="图组不存在"), 404
+
+	data = request.get_json(silent=True) or {}
+	image_id = data.get("image_id")
+	if not image_id or not any(img.id == int(image_id) for img in gallery.images):
+		return jsonify(ok=False, msg="图片不属于该图组"), 400
+
+	gallery.cover_image_id = int(image_id)
+	db.session.commit()
+	return jsonify(ok=True)
+
+
+@gallery_bp.route("/gallery/<int:gid>/image/<int:iid>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_image(gid, iid):
+	"""删除图组内单张图片（管理员）：至少保留一张，必要时改封面。"""
+	gallery = db.session.get(Gallery, gid)
+	if not gallery:
+		return jsonify(ok=False, msg="图组不存在"), 404
+
+	image = next((img for img in gallery.images if img.id == iid), None)
+	if not image:
+		return jsonify(ok=False, msg="图片不存在"), 404
+	if len(gallery.images) <= 1:
+		return jsonify(ok=False, msg="至少保留一张图片，如需清空请删除整个图组"), 400
+
+	was_cover = gallery.cover_image_id == image.id
+	_remove_image_files(image)
+	db.session.delete(image)
+	db.session.flush()
+
+	if was_cover:
+		remaining = [img for img in gallery.images if img.id != iid]
+		gallery.cover_image_id = remaining[0].id if remaining else None
+
+	db.session.commit()
+	return jsonify(ok=True)
+
+
+@gallery_bp.route("/gallery/<int:gid>/images", methods=["POST"])
+@login_required
+@admin_required
+def add_images(gid):
+	"""向已有图组追加图片（管理员）。"""
+	gallery = db.session.get(Gallery, gid)
+	if not gallery:
+		return jsonify(ok=False, msg="图组不存在"), 404
+
+	files = [f for f in request.files.getlist("images") if f and f.filename]
+	if not files:
+		return jsonify(ok=False, msg="请至少选择一张图片"), 400
+
+	next_index = max((img.order_index for img in gallery.images), default=-1) + 1
+	added = 0
+	for file_storage in files:
+		if not allowed_file(file_storage.filename):
+			continue
+		name, thumb = save_image(file_storage)
+		db.session.add(Image(
+			gallery_id=gallery.id,
+			filename=name,
+			thumb_filename=thumb,
+			order_index=next_index,
+		))
+		next_index += 1
+		added += 1
+
+	if not added:
+		return jsonify(ok=False, msg="图片格式不支持"), 400
+
+	db.session.commit()
+	return jsonify(ok=True, added=added)

@@ -239,6 +239,7 @@
 
 	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 	<script>window.IS_AUTH = {{ 'true' if current_user.is_authenticated else 'false' }};</script>
+	<script>window.IS_ADMIN = {{ 'true' if current_user.is_authenticated and current_user.is_admin else 'false' }};</script>
 	<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 	{% block scripts %}{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1 class="page-title">个人中心</h1>
+
+	<div class="profile-card" x-data="{ editName: false, editBio: false, avatarOpen: false }">
+		<div class="avatar-wrap">
+			{% if current_user.avatar %}
+				<img class="big-avatar" src="{{ url_for('static', filename='avatars/' + current_user.avatar) }}" alt="">
+			{% else %}
+				<span class="big-avatar fallback">{{ current_user.nickname[0] }}</span>
+			{% endif %}
+			<button class="avatar-badge" type="button" @click="avatarOpen = true" title="更换头像">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+					stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path>
+					<circle cx="12" cy="13" r="4"></circle>
+				</svg>
+			</button>
+		</div>
+
+		<div class="profile-info">
+			<span class="role-tag">
+				{% if current_user.role == 'owner' %}OWNER · 站长
+				{% elif current_user.role == 'admin' %}ADMIN · 管理员
+				{% else %}USER · 普通用户{% endif %}
+			</span>
+
+			<!-- 名称 + 编辑 icon -->
+			<div class="name-line" x-show="!editName">
+				<h2>{{ current_user.nickname }}</h2>
+				<button class="edit-icon" type="button" @click="editName = true" title="修改昵称（每月一次）">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 20h9"></path>
+						<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+					</svg>
+				</button>
+			</div>
+
+			<form class="inline-edit" method="post" action="{{ url_for('user.change_nickname') }}"
+				x-show="editName" x-cloak onsubmit="return confirm('昵称每月仅可修改一次，确认修改？');">
+				<input type="text" name="nickname" maxlength="32" value="{{ current_user.nickname }}" required>
+				<div class="row-btns">
+					<button type="submit" class="btn-mini primary">确认</button>
+					<button type="button" class="btn-mini" @click="editName = false">取消</button>
+				</div>
+			</form>
+
+			<p class="profile-email">{{ current_user.email }}</p>
+
+			<!-- 简介：点击进入编辑 -->
+			<div class="bio-box">
+				<div class="bio-text {{ '' if current_user.bio else 'placeholder' }}"
+					x-show="!editBio" @click="editBio = true">
+					{{ current_user.bio or "点击此处填写个人简介…" }}
+				</div>
+				<form class="bio-edit" method="post" action="{{ url_for('user.change_bio') }}"
+					x-show="editBio" x-cloak>
+					<textarea name="bio" rows="3" maxlength="500"
+						placeholder="介绍一下自己…">{{ current_user.bio }}</textarea>
+					<div class="row-btns">
+						<button type="submit" class="btn-mini primary">保存简介</button>
+						<button type="button" class="btn-mini" @click="editBio = false">取消</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- 更换头像二级弹窗 -->
+		<div class="modal-mask" x-show="avatarOpen" x-cloak @click.self="avatarOpen = false">
+			<div class="modal">
+				<button class="modal-close" type="button" @click="avatarOpen = false">×</button>
+				<div class="modal-tabs"><button class="on">更换头像</button></div>
+				<form class="modal-form" method="post" action="{{ url_for('user.change_avatar') }}"
+					enctype="multipart/form-data">
+					<input type="file" name="avatar" accept="image/*" required>
+					<button type="submit" class="btn primary full">上传头像</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="profile-grid">
+		<form class="form-card" method="post" action="{{ url_for('user.change_password') }}"
+			x-data="{ s1: false, s2: false }">
+			<h3>修改密码</h3>
+			<div class="pwd-wrap">
+				<input :type="s1 ? 'text' : 'password'" name="old_password" placeholder="原密码" required>
+				<button class="pwd-eye" type="button" @click="s1 = !s1" :title="s1 ? '隐藏密码' : '显示密码'">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<template x-if="!s1">
+							<g>
+								<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+								<circle cx="12" cy="12" r="3"></circle>
+							</g>
+						</template>
+						<template x-if="s1">
+							<g>
+								<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+								<path d="M1 1l22 22"></path>
+							</g>
+						</template>
+					</svg>
+				</button>
+			</div>
+			<div class="pwd-wrap">
+				<input :type="s2 ? 'text' : 'password'" name="new_password"
+					placeholder="新密码（至少 6 位）" minlength="6" required>
+				<button class="pwd-eye" type="button" @click="s2 = !s2" :title="s2 ? '隐藏密码' : '显示密码'">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<template x-if="!s2">
+							<g>
+								<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+								<circle cx="12" cy="12" r="3"></circle>
+							</g>
+						</template>
+						<template x-if="s2">
+							<g>
+								<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+								<path d="M1 1l22 22"></path>
+							</g>
+						</template>
+					</svg>
+				</button>
+			</div>
+			<button class="btn primary" type="submit">修改密码</button>
+		</form>
+	</div>
+
+	<div class="profile-foot">
+		<a class="btn danger" href="{{ url_for('auth.logout') }}">退出登录</a>
+	</div>
+{% endblock %}

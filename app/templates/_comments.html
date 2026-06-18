@@ -1,0 +1,73 @@
+<!-- 评论 UI 片段：需置于带有 commentBox(...) 的 x-data 作用域内复用 -->
+<div class="comment-input">
+	<template x-if="replyTo">
+		<div class="reply-hint">
+			回复 <b x-text="replyName"></b>
+			<button class="link" @click="cancelReply()">取消</button>
+		</div>
+	</template>
+	<textarea x-model="content" rows="2" placeholder="写下评论…"></textarea>
+	<button class="btn primary" @click="submit()">发表</button>
+</div>
+
+<div class="comment-list">
+	<template x-if="roots().length === 0">
+		<p class="empty-mini">还没有评论</p>
+	</template>
+	<template x-for="c in roots()" :key="c.id">
+		<div class="comment">
+			<div class="comment-row">
+				<template x-if="c.avatar">
+					<img class="mini-avatar" :src="c.avatar" alt="">
+				</template>
+				<template x-if="!c.avatar">
+					<span class="mini-avatar fallback" x-text="c.nickname[0]"></span>
+				</template>
+				<div class="comment-body">
+					<div class="comment-head">
+						<b x-text="c.nickname"></b>
+						<template x-if="c.role === 'owner'">
+							<span class="id-tag owner">站长</span>
+						</template>
+						<template x-if="c.role === 'admin'">
+							<span class="id-tag admin">管理员</span>
+						</template>
+						<span class="time" x-text="c.created_at"></span>
+					</div>
+					<p x-text="c.content"></p>
+					<div class="comment-ops">
+						<button class="link" @click="setReply(c)">回复</button>
+						<template x-if="c.can_delete">
+							<button class="link danger" @click="remove(c.id)">删除</button>
+						</template>
+					</div>
+
+					<!-- 楼中楼 -->
+					<div class="sub-comments">
+						<template x-for="sc in children(c.id)" :key="sc.id">
+							<div class="comment sub">
+								<div class="comment-head">
+									<b x-text="sc.nickname"></b>
+									<template x-if="sc.role === 'owner'">
+										<span class="id-tag owner">站长</span>
+									</template>
+									<template x-if="sc.role === 'admin'">
+										<span class="id-tag admin">管理员</span>
+									</template>
+									<span class="time" x-text="sc.created_at"></span>
+								</div>
+								<p x-text="sc.content"></p>
+								<div class="comment-ops">
+									<button class="link" @click="setReply(c)">回复</button>
+									<template x-if="sc.can_delete">
+										<button class="link danger" @click="remove(sc.id)">删除</button>
+									</template>
+								</div>
+							</div>
+						</template>
+					</div>
+				</div>
+			</div>
+		</div>
+	</template>
+</div>

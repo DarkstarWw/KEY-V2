@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<div class="form-card wide">
+		<h1>上传图组</h1>
+		<form method="post" action="{{ url_for('gallery.upload') }}" enctype="multipart/form-data">
+			<label>标题
+				<input type="text" name="title" maxlength="120" required>
+			</label>
+			<label>分类
+				<select name="category" required>
+					{% for key, label in CATEGORIES %}
+						<option value="{{ key }}">{{ label }}</option>
+					{% endfor %}
+				</select>
+			</label>
+			<label>简介
+				<textarea name="description" rows="3" maxlength="1000"></textarea>
+			</label>
+			<label>选择图片（可多选）
+				<input type="file" id="image-input" name="images" accept="image/*" multiple required>
+			</label>
+
+			<p class="hint">点击下方图片设为封面：</p>
+			<div id="preview" class="upload-preview"></div>
+			<input type="hidden" id="cover-index" name="cover_index" value="0">
+
+			<button type="submit" class="btn primary full">上传</button>
+		</form>
+	</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	// 选择图片后生成预览，并支持点击设为封面
+	const input = document.getElementById("image-input");
+	const preview = document.getElementById("preview");
+	const coverIndex = document.getElementById("cover-index");
+
+	input.addEventListener("change", function () {
+		preview.innerHTML = "";
+		coverIndex.value = "0";
+		Array.from(input.files).forEach(function (file, idx) {
+			const url = URL.createObjectURL(file);
+			const item = document.createElement("div");
+			item.className = "preview-item" + (idx === 0 ? " cover" : "");
+			item.innerHTML = '<img src="' + url + '"><span class="badge">封面</span>';
+			item.addEventListener("click", function () {
+				document.querySelectorAll(".preview-item").forEach(function (el) {
+					el.classList.remove("cover");
+				});
+				item.classList.add("cover");
+				coverIndex.value = idx;
+			});
+			preview.appendChild(item);
+		});
+	});
+</script>
+{% endblock %}

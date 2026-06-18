@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Flask 实例数据（含 SQLite 数据库，启动时自动重建）
+instance/
+
+# 运行时上传内容
+app/static/uploads/
+app/static/avatars/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

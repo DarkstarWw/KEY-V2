@@ -1,0 +1,19 @@
+<!-- 数字页码条：需传入 pagination（Flask-SQLAlchemy Pagination） -->
+{% if pagination and pagination.pages > 1 %}
+	<nav class="pager">
+		{% if pagination.has_prev %}
+			<a class="page" href="{{ page_url(pagination.prev_num) }}">‹</a>
+		{% endif %}
+		{% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+			{% if p %}
+				<a class="page {{ 'on' if p == pagination.page }}" href="{{ page_url(p) }}">
+					{{ '%02d'|format(p) }}</a>
+			{% else %}
+				<span class="page gap">…</span>
+			{% endif %}
+		{% endfor %}
+		{% if pagination.has_next %}
+			<a class="page" href="{{ page_url(pagination.next_num) }}">›</a>
+		{% endif %}
+	</nav>
+{% endif %}

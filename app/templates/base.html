@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ title or "图床" }} · 图床</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+	<!-- 主题初始化：在渲染前确定明暗，避免闪烁 -->
+	<script>
+		(function () {
+			var saved = localStorage.getItem("theme");
+			var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+			document.documentElement.setAttribute("data-theme", theme);
+		})();
+	</script>
+</head>
+<body x-data="{ authOpen: false, authTab: 'login', searchOpen: false }">
+	<div class="hud-frame" aria-hidden="true">
+		<span class="c tl"></span><span class="c tr"></span>
+		<span class="c bl"></span><span class="c br"></span>
+	</div>
+	<header class="navbar">
+		<a class="brand" href="{{ url_for('gallery.index') }}" title="首页" aria-label="首页">
+			<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+				stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+				<rect x="3" y="5" width="18" height="14" rx="3"></rect>
+				<circle cx="12" cy="12" r="3.2"></circle>
+				<path d="M8 5l1.2-2h5.6L16 5"></path>
+			</svg>
+		</a>
+
+		<nav class="nav-center">
+			<div class="nav-links">
+				<a href="{{ url_for('gallery.index') }}" class="{{ 'on' if active == 'home' }}">首页</a>
+				{% for key, label in CATEGORIES %}
+					<a href="{{ url_for('gallery.category', category=key) }}"
+						class="{{ 'on' if active == key }}">{{ label }}</a>
+				{% endfor %}
+				{% if current_user.is_authenticated %}
+					<span class="nav-sep warn-stripe"></span>
+					<a href="{{ url_for('user.favorites') }}" class="{{ 'on' if active == 'fav' }}">收藏</a>
+				{% endif %}
+			</div>
+			<div class="search-wrap" :class="searchOpen ? 'open' : ''">
+				<button class="search-icon" type="button" @click="searchOpen = !searchOpen" title="搜索">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+						stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="11" cy="11" r="7"></circle>
+						<path d="m21 21-4.3-4.3"></path>
+					</svg>
+				</button>
+				<form class="nav-search" action="{{ url_for('gallery.search') }}" method="get">
+					<input type="text" name="q" placeholder="搜索标题或上传者…"
+						value="{{ request.args.get('q', '') }}" x-show="searchOpen"
+						x-transition.opacity>
+				</form>
+			</div>
+		</nav>
+
+		<div class="nav-right">
+			<button class="theme-btn" type="button" onclick="toggleTheme()" title="切换主题">◐</button>
+
+			{% if current_user.is_authenticated %}
+				{% if current_user.is_admin %}
+					<a class="btn-mini" href="{{ url_for('gallery.upload') }}">上传</a>
+				{% endif %}
+				<div class="dropdown" x-data="{ open: false }">
+					<button class="avatar-btn" @click="open = !open" type="button">
+						{% if current_user.avatar %}
+							<img src="{{ url_for('static', filename='avatars/' + current_user.avatar) }}" alt="头像">
+						{% else %}
+							<span class="avatar-fallback">{{ current_user.nickname[0] }}</span>
+						{% endif %}
+						<span class="nick">{{ current_user.nickname }}</span>
+					</button>
+					<div class="dropdown-menu" x-show="open" @click.outside="open = false" x-cloak>
+						<a href="{{ url_for('user.profile') }}">个人中心</a>
+						{% if current_user.is_owner %}
+							<a href="{{ url_for('admin.dashboard') }}">后台管理</a>
+						{% endif %}
+						<a href="{{ url_for('auth.logout') }}">退出登录</a>
+					</div>
+				</div>
+			{% else %}
+				<button class="btn-mini primary" type="button" @click="authOpen = true">登录</button>
+			{% endif %}
+		</div>
+	</header>
+
+	{% with messages = get_flashed_messages(with_categories=true) %}
+		{% if messages %}
+			<div class="flash-wrap">
+				{% for category, msg in messages %}
+					<div class="flash {{ category }}">{{ msg }}</div>
+				{% endfor %}
+			</div>
+		{% endif %}
+	{% endwith %}
+
+	<main class="container">
+		{% block content %}{% endblock %}
+	</main>
+
+	{% set _cat_keys = CATEGORIES|map('first')|list %}
+	{% if active == 'home' or active in _cat_keys %}
+		<div class="user-dock" x-data="userPanel()">
+			<button class="user-dock-btn" type="button" @click="toggle()"
+				:class="open ? 'on' : ''" title="全站用户">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+					stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+					<circle cx="9" cy="7" r="4"></circle>
+					<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+					<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+				</svg>
+				<span class="dock-label">用户</span>
+			</button>
+
+			<div class="user-panel" x-show="open" x-cloak x-transition.opacity
+				@click.outside="open = false">
+				<div class="user-panel-head">
+					<span class="no-label">USERS · 全站用户</span>
+					<button class="panel-close" type="button" @click="open = false">×</button>
+				</div>
+				<div class="warn-line"></div>
+				<div class="user-panel-list">
+					<template x-if="loading">
+						<p class="empty-mini">加载中…</p>
+					</template>
+					<template x-for="u in users" :key="u.id">
+						<div class="user-panel-row">
+							<template x-if="u.avatar">
+								<img class="mini-avatar" :src="u.avatar" alt="">
+							</template>
+							<template x-if="!u.avatar">
+								<span class="mini-avatar fallback" x-text="u.initial"></span>
+							</template>
+							<span class="up-name" x-text="u.nickname"></span>
+							<span class="id-tag"
+								:class="u.role === 'owner' ? 'owner' : (u.role === 'admin' ? 'admin' : 'user')"
+								x-text="roleLabel(u.role)"></span>
+						</div>
+					</template>
+				</div>
+				<div class="user-panel-foot" x-show="pages > 1">
+					<button class="btn-mini" type="button" @click="prev()"
+						:disabled="page <= 1">‹</button>
+					<span class="page-now"><span x-text="page"></span> / <span x-text="pages"></span></span>
+					<button class="btn-mini" type="button" @click="next()"
+						:disabled="page >= pages">›</button>
+				</div>
+			</div>
+		</div>
+	{% endif %}
+
+	<!-- 登录 / 注册二级弹窗 -->
+	{% if not current_user.is_authenticated %}
+		<div class="modal-mask" x-show="authOpen" x-cloak @click.self="authOpen = false"
+			x-transition.opacity>
+			<div class="modal">
+				<button class="modal-close" type="button" @click="authOpen = false">×</button>
+				<div class="modal-tabs">
+					<button :class="authTab === 'login' ? 'on' : ''" @click="authTab = 'login'">登录</button>
+					<button :class="authTab === 'register' ? 'on' : ''" @click="authTab = 'register'">注册</button>
+				</div>
+
+				<template x-if="authTab === 'login'">
+					<form class="modal-form" method="post" action="{{ url_for('auth.login') }}">
+						<input type="email" name="email" placeholder="邮箱" required>
+						<div class="pwd-wrap" x-data="{ show: false }">
+							<input :type="show ? 'text' : 'password'" name="password" placeholder="密码" required>
+							<button class="pwd-eye" type="button" @click="show = !show"
+								:title="show ? '隐藏密码' : '显示密码'">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<template x-if="!show">
+										<g>
+											<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+											<circle cx="12" cy="12" r="3"></circle>
+										</g>
+									</template>
+									<template x-if="show">
+										<g>
+											<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+											<path d="M1 1l22 22"></path>
+										</g>
+									</template>
+								</svg>
+							</button>
+						</div>
+						<div class="captcha-row">
+							<input type="text" name="captcha" maxlength="4" placeholder="验证码"
+								autocomplete="off" required>
+							<img class="captcha-img" src="{{ url_for('auth.captcha') }}" alt="验证码"
+								title="点击刷新" onclick="this.src='{{ url_for('auth.captcha') }}?t=' + Date.now()">
+						</div>
+						<button type="submit" class="btn primary full">登录</button>
+					</form>
+				</template>
+
+				<template x-if="authTab === 'register'">
+					<form class="modal-form" method="post" action="{{ url_for('auth.register') }}">
+						<input type="email" name="email" placeholder="邮箱" required>
+						<input type="text" name="nickname" maxlength="32" placeholder="昵称（不可重名）" required>
+						<div class="pwd-wrap" x-data="{ show: false }">
+							<input :type="show ? 'text' : 'password'" name="password" minlength="6"
+								placeholder="密码（至少 6 位）" required>
+							<button class="pwd-eye" type="button" @click="show = !show"
+								:title="show ? '隐藏密码' : '显示密码'">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<template x-if="!show">
+										<g>
+											<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+											<circle cx="12" cy="12" r="3"></circle>
+										</g>
+									</template>
+									<template x-if="show">
+										<g>
+											<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+											<path d="M1 1l22 22"></path>
+										</g>
+									</template>
+								</svg>
+							</button>
+						</div>
+						<div class="captcha-row">
+							<input type="text" name="captcha" maxlength="4" placeholder="验证码"
+								autocomplete="off" required>
+							<img class="captcha-img" src="{{ url_for('auth.captcha') }}" alt="验证码"
+								title="点击刷新" onclick="this.src='{{ url_for('auth.captcha') }}?t=' + Date.now()">
+						</div>
+						<button type="submit" class="btn primary full">注册</button>
+					</form>
+				</template>
+			</div>
+		</div>
+	{% endif %}
+
+	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+	<script>window.IS_AUTH = {{ 'true' if current_user.is_authenticated else 'false' }};</script>
+	<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+	{% block scripts %}{% endblock %}
+</body>
+</html>

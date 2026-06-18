@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% from "_role.html" import id_tag %}
+
+{% block content %}
+	<article class="detail"
+		x-data="{ lb: false, curId: null, ids: {{ gallery.images|map(attribute='id')|list }},
+			open(id) { this.curId = id; this.lb = true; document.body.style.overflow = 'hidden'; },
+			close() { this.lb = false; this.curId = null; document.body.style.overflow = ''; },
+			idx() { return this.ids.indexOf(this.curId); },
+			prev() { const i = this.idx(); if (i > 0) { this.curId = this.ids[i - 1]; } },
+			next() { const i = this.idx(); if (i < this.ids.length - 1) { this.curId = this.ids[i + 1]; } } }"
+		@keydown.escape.window="lb && close()"
+		@keydown.arrow-left.window="lb && prev()"
+		@keydown.arrow-right.window="lb && next()">
+		<header class="detail-head">
+			<div class="detail-title-line">
+				<h1>{{ gallery.title }}</h1>
+				{% if current_user.is_authenticated %}
+					<button class="title-fav" x-data="favBox('gallery', {{ gallery.id }})" x-init="init()"
+						:class="fav ? 'on' : ''" @click="toggle()" title="收藏图组">★</button>
+				{% endif %}
+			</div>
+			<div class="warn-line"></div>
+			<div class="detail-meta">
+				{% if gallery.uploader.avatar %}
+					<img class="mini-avatar"
+						src="{{ url_for('static', filename='avatars/' + gallery.uploader.avatar) }}" alt="">
+				{% else %}
+					<span class="mini-avatar fallback">{{ gallery.uploader.nickname[0] }}</span>
+				{% endif %}
+				{{ id_tag(gallery.uploader.role, show_user=false) }}
+				<span>{{ gallery.uploader.nickname }}</span>
+				<span class="dot">·</span>
+				<span>{{ gallery.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+				<span class="tag">{{ dict(CATEGORIES)[gallery.category] }}</span>
+			</div>
+			{% if gallery.description %}
+				<p class="detail-desc">{{ gallery.description }}</p>
+			{% endif %}
+
+			{% if current_user.is_authenticated and current_user.is_admin %}
+				<div class="detail-actions">
+					<form method="post" action="{{ url_for('gallery.delete', gid=gallery.id) }}"
+						onsubmit="return confirm('确认删除整个图组？');">
+						<button type="submit" class="btn danger">删除图组</button>
+					</form>
+				</div>
+			{% endif %}
+		</header>
+
+		<!-- 图片网格：一行最多 5 张，单图按两图宽度显示，点击放大 -->
+		{% set cols = 2 if gallery.images|length == 1 else [gallery.images|length, 5]|min %}
+		<section class="photo-grid" style="grid-template-columns: repeat({{ cols }}, 1fr);">
+			{% for img in gallery.images %}
+				<button class="grid-cell" type="button" @click="open({{ img.id }})"
+					title="查看大图">
+					<img src="{{ url_for('static', filename='uploads/' + img.thumb_filename) }}"
+						alt="{{ gallery.title }}" loading="lazy">
+					<span class="grid-no">P{{ '%02d'|format(loop.index) }}</span>
+				</button>
+			{% endfor %}
+		</section>
+
+		<!-- 大图查看弹窗：评分 / 评论随当前图片动态加载 -->
+		<div class="lightbox" x-show="lb" x-cloak @click.self="close()" x-transition.opacity>
+			<button class="lb-close" type="button" @click="close()" title="关闭">×</button>
+			<button class="lb-nav lb-prev" type="button" x-show="ids.length > 1 && idx() > 0"
+				@click="prev()" title="上一张（←）">‹</button>
+			<button class="lb-nav lb-next" type="button" x-show="ids.length > 1 && idx() < ids.length - 1"
+				@click="next()" title="下一张（→）">›</button>
+			<div class="lb-stage" @click.self="close()">
+				{% for img in gallery.images %}
+					<template x-if="curId === {{ img.id }}">
+						<div class="lb-panel">
+							<div class="lb-imgwrap">
+								<img class="lb-img"
+									src="{{ url_for('static', filename='uploads/' + img.filename) }}"
+									alt="{{ gallery.title }}">
+								{% if current_user.is_authenticated %}
+									<button class="photo-fav" x-data="favBox('image', {{ img.id }})"
+										x-init="init()" :class="fav ? 'on' : ''" @click="toggle()"
+										title="收藏此图">★</button>
+								{% endif %}
+							</div>
+							<div class="lb-side">
+								<div class="lb-side-head">
+									<span class="no-label">IMG · P{{ '%02d'|format(loop.index) }}</span>
+								</div>
+								<div class="rating" x-data="ratingBox({{ img.id }})" x-init="init()">
+									<div class="stars">
+										<template x-for="s in [1,2,3,4,5]" :key="s">
+											<span class="star" :class="s <= (hover || my) ? 'on' : ''"
+												@mouseenter="hover = s" @mouseleave="hover = 0"
+												@click="rate(s)">★</span>
+										</template>
+									</div>
+									<span class="rating-num">
+										<span x-text="avg"></span>（<span x-text="count"></span> 人）
+									</span>
+									<button class="link" @click="showDetail = !showDetail">打分详情</button>
+									<div class="rating-detail" x-show="showDetail" x-cloak>
+										<template x-if="items.length === 0">
+											<p class="empty-mini">暂无打分</p>
+										</template>
+										<template x-for="r in items" :key="r.nickname">
+											<p><b x-text="r.nickname"></b> 打分了
+												<span x-text="r.score"></span> 星</p>
+										</template>
+									</div>
+								</div>
+								<div class="comments small" x-data="commentBox('image', {{ img.id }})"
+									x-init="init()">
+									{% include "_comments.html" %}
+								</div>
+							</div>
+						</div>
+					</template>
+				{% endfor %}
+			</div>
+		</div>
+
+		<!-- 图组评论 -->
+		<section class="comments" x-data="commentBox('gallery', {{ gallery.id }})" x-init="init()">
+			<h2 class="sub-head">图组评论</h2>
+			{% include "_comments.html" %}
+		</section>
+	</article>
+{% endblock %}

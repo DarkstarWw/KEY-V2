@@ -1,0 +1,10 @@
+{#- 统一身份标签宏：全站复用（站长=明黄 / 管理员=工业深绿 / 用户=灰）。 -#}
+{%- macro id_tag(role, show_user=true) -%}
+	{%- if role == 'owner' -%}
+		<span class="id-tag owner">站长</span>
+	{%- elif role == 'admin' -%}
+		<span class="id-tag admin">管理员</span>
+	{%- elif show_user -%}
+		<span class="id-tag user">用户</span>
+	{%- endif -%}
+{%- endmacro -%}

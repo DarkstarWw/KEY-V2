@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_role.html" import id_tag %}
+
+{% block content %}
+	<h1 class="page-title">搜索结果</h1>
+	{% if keyword %}
+		<p class="search-hint">关键词「{{ keyword }}」，共 {{ galleries|length }} 个图组</p>
+	{% else %}
+		<p class="search-hint">请输入关键词搜索图组标题或上传者昵称</p>
+	{% endif %}
+
+	{% if galleries %}
+		<div class="gallery-list">
+			{% for g in galleries %}
+				<div class="gallery-row">
+					{% if current_user.is_authenticated %}
+						<button class="fav-star" x-data="favBox('gallery', {{ g.id }})" x-init="init()"
+							:class="fav ? 'on' : ''" @click.prevent.stop="toggle()"
+							title="收藏图组">★</button>
+					{% endif %}
+					<a class="row-link" href="{{ url_for('gallery.detail', gid=g.id) }}">
+						<div class="row-cover">
+							{% if g.cover %}
+								<img src="{{ url_for('static', filename='uploads/' + g.cover.thumb_filename) }}"
+									alt="{{ g.title }}" loading="lazy">
+							{% endif %}
+							<span class="count">{{ g.image_count }} P</span>
+						</div>
+						<div class="row-body">
+							<div class="row-top">
+								<span class="no-label">NO.{{ '%03d'|format(g.id) }}</span>
+								<span class="tag">{{ dict(CATEGORIES)[g.category] }}</span>
+								<span class="row-date">{{ g.created_at.strftime('%Y-%m-%d') }}</span>
+							</div>
+							<div class="row-title">{{ g.title }}</div>
+							<div class="card-meta">
+								{% if g.uploader.avatar %}
+									<img class="mini-avatar"
+										src="{{ url_for('static', filename='avatars/' + g.uploader.avatar) }}" alt="">
+								{% else %}
+									<span class="mini-avatar fallback">{{ g.uploader.nickname[0] }}</span>
+								{% endif %}
+								{{ id_tag(g.uploader.role, show_user=false) }}
+								<span>{{ g.uploader.nickname }}</span>
+							</div>
+						</div>
+					</a>
+				</div>
+			{% endfor %}
+		</div>
+		{% include "_pager.html" %}
+	{% elif keyword %}
+		<p class="empty">没有匹配的图组</p>
+	{% endif %}
+{% endblock %}

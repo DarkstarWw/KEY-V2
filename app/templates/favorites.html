@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1 class="page-title">我的收藏</h1>
+
+	<section>
+		<h2 class="sub-head">收藏的图组</h2>
+		{% if fav_galleries %}
+			<div class="gallery-grid">
+				{% for g in fav_galleries %}
+					<a class="gallery-card" href="{{ url_for('gallery.detail', gid=g.id) }}">
+						<div class="cover">
+							{% if g.cover %}
+								<img src="{{ url_for('static', filename='uploads/' + g.cover.thumb_filename) }}"
+									alt="{{ g.title }}" loading="lazy">
+							{% endif %}
+							<span class="count">{{ g.image_count }} 张</span>
+						</div>
+						<div class="card-info">
+							<div class="card-title">{{ g.title }}</div>
+						</div>
+					</a>
+				{% endfor %}
+			</div>
+		{% else %}
+			<p class="empty">暂无收藏的图组</p>
+		{% endif %}
+	</section>
+
+	<section>
+		<h2 class="sub-head">收藏的单图</h2>
+		{% if fav_images %}
+			<div class="image-grid">
+				{% for img in fav_images %}
+					<a class="image-card" href="{{ url_for('gallery.detail', gid=img.gallery_id) }}">
+						<img src="{{ url_for('static', filename='uploads/' + img.thumb_filename) }}"
+							alt="" loading="lazy">
+					</a>
+				{% endfor %}
+			</div>
+		{% else %}
+			<p class="empty">暂无收藏的单图</p>
+		{% endif %}
+	</section>
+{% endblock %}

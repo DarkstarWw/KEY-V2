@@ -13,6 +13,9 @@ instance/
 app/static/uploads/
 app/static/avatars/
 
+# cloudflared 隧道日志
+tunnel.log
+
 # 编辑器 / 系统
 .vscode/
 .idea/

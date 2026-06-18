@@ -858,6 +858,8 @@ img {
 
 .title-fav {
 	flex: 0 0 auto;
+	position: relative;
+	top: -2px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;

@@ -3,9 +3,9 @@
 
 {% block content %}
 	<article class="detail"
-		x-data="galleryDetail({ gid: {{ gallery.id }}, title: {{ gallery.title|tojson }},
+		x-data='galleryDetail({ gid: {{ gallery.id }}, title: {{ gallery.title|tojson }},
 			description: {{ gallery.description|tojson }}, category: {{ gallery.category|tojson }},
-			ids: {{ gallery.images|map(attribute='id')|list|tojson }} })"
+			ids: {{ gallery.images|map(attribute="id")|list|tojson }} })'
 		@keydown.escape.window="lb && close()"
 		@keydown.arrow-left.window="lb && prev()"
 		@keydown.arrow-right.window="lb && next()">
